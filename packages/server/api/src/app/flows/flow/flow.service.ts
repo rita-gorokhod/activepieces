@@ -111,25 +111,28 @@ export const flowService = {
         if (status !== undefined) {
             queryWhere.status = In(status)
         }
-        const paginationResult = await paginator.paginate(
-            flowRepo().createQueryBuilder('flow').where(queryWhere),
-        )
+
+        let query = flowRepo()
+            .createQueryBuilder('flow')
+            .where(queryWhere)
+            .innerJoinAndSelect('flow.versions', 'flowVersion', 'flowVersion.flowId = flow.id')
+            .orderBy('flowVersion.id', 'DESC')
+
+        if (name) {
+            query = query.andWhere('flowVersion.displayName LIKE :namePattern', { namePattern: `%${name}%` })
+        }
+
+        const paginationResult = await paginator.paginate(query)
 
         const populatedFlowPromises = paginationResult.data.map(async (flow) => {
-            const version = await flowVersionService.getFlowVersionOrThrow({
-                flowId: flow.id,
-                versionId: undefined,
-            })
-
             return {
                 ...flow,
-                version,
+                version: flow.versions[0],
             }
         })
 
         const populatedFlows = await Promise.all(populatedFlowPromises)
-        const filteredPopulatedFlows = name ? populatedFlows.filter((flow) => flow.version.displayName.match(new RegExp(`^.*${name}.*`, 'i'))) : populatedFlows
-        return paginationHelper.createPage(filteredPopulatedFlows, paginationResult.cursor)
+        return paginationHelper.createPage(populatedFlows, paginationResult.cursor)
     },
 
     async getOneById(id: string): Promise<Flow | null> {

@@ -443,7 +443,7 @@ describe('Flow API', () => {
             // act
             const response = await app?.inject({
                 method: 'GET',
-                url: '/v1/flows',
+                url: `/v1/flows/${mockFlow.id}`,
                 query: {
                     projectId: mockProject.id,
                 },
